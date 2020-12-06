@@ -1,0 +1,12 @@
+[package]
+name = "gallerist"
+description = "Generate static HTML galleries from a directory containing JPEGs."
+version = "0.1.0"
+authors = ["Danilo Bargen <mail@dbrgn.ch>"]
+edition = "2018"
+
+[dependencies]
+anyhow = "1"
+image = "0.23"
+lazy_static = "1.4"
+structopt = { version = "0.3", default-features = false }
