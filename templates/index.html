@@ -3,7 +3,11 @@
 <head>
     <meta charset="utf-8">
     <title>{{ title }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="generator" content="Gallerist v{{ gallerist_version }}">
+
+    <link rel="stylesheet" type="text/css" href="static/simple-lightbox.min.css">
+
     <style type="text/css">
         /* Reset */
         * {
@@ -23,34 +27,54 @@
 
         /* Page */
         body {
-            font-family: sans-serif;
+            font-family: verdana, sans-serif;
+            color: #eee;
+            background-color: #252025;
         }
         h1 {
             text-align: center;
         }
 
         /* Gallery */
-        .container {
+        .gallery {
             display: flex;
             flex-wrap: wrap;
-            padding: 5px;
+            padding: 8px;
             justify-content: center;
         }
-        .container .thumb {
-            margin: 5px;
+        .gallery .thumb {
+            margin: 8px;
+        }
+
+        /* Lightbox */
+        .sl-wrapper {
+            background-color: #121012;
+        }
+        .sl-wrapper .sl-counter,
+        .sl-wrapper .sl-navigation button,
+        .sl-wrapper .sl-close {
+            color: #eee;
         }
     </style>
 </head>
 
 <body>
     <h1>{{ title }}</h1>
-    <div class="container">
+    <div class="gallery">
         {% for image in images %}
         <div class="thumb">
-            <img src="{{ image.filename_thumb }}" title="{{ image.filename_full }}">
+            <a href="{{ image.filename_full }}">
+                <img src="{{ image.filename_thumb }}" title="{{ image.filename_full }}">
+            </a>
         </div>
         {% endfor %}
     </div>
-    <script src="js/scripts.js"></script>
+    <script src="static/simple-lightbox.min.js"></script>
+    <script>
+        const lightbox = new SimpleLightbox('.gallery a', {
+            captionDelay: 50,
+            fadeSpeed: 300,
+        });
+    </script>
 </body>
 </html>

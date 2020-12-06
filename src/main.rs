@@ -1,5 +1,5 @@
 use std::{
-    fs,
+    fs, io,
     path::{Path, PathBuf},
     time::Instant,
 };
@@ -222,5 +222,24 @@ fn main() -> Result<()> {
     log!("Writing index.html");
     fs::write(args.output_dir.join("index.html"), rendered)?;
 
+    // Write static files
+    log!("Writing static files");
+    fs::create_dir(args.output_dir.join("static")).or_else(|e| {
+        if e.kind() == io::ErrorKind::AlreadyExists {
+            Ok(())
+        } else {
+            Err(e)
+        }
+    })?;
+    fs::write(
+        args.output_dir.join("static/simple-lightbox.min.js"),
+        include_bytes!("../static/simple-lightbox.min.js"),
+    )?;
+    fs::write(
+        args.output_dir.join("static/simple-lightbox.min.css"),
+        include_bytes!("../static/simple-lightbox.min.css"),
+    )?;
+
+    log!("Done!");
     Ok(())
 }
