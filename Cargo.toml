@@ -4,6 +4,8 @@ description = "Generate static HTML galleries from a directory containing JPEGs.
 version = "0.1.0"
 authors = ["Danilo Bargen <mail@dbrgn.ch>"]
 edition = "2018"
+license = "MIT/Apache-2.0"
+readme = "README.md"
 
 [dependencies]
 anyhow = "1"
