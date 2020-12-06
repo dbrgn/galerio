@@ -1,5 +1,5 @@
 [package]
-name = "gallerist"
+name = "galerio"
 description = "Generate static HTML galleries from a directory containing JPEGs."
 version = "0.1.0"
 authors = ["Danilo Bargen <mail@dbrgn.ch>"]

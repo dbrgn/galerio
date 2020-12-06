@@ -12,7 +12,7 @@ use serde::Serialize;
 use structopt::StructOpt;
 use tera::Tera;
 
-const NAME: &str = "gallerist";
+const NAME: &str = "galerio";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 lazy_static! {
