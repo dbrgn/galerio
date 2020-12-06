@@ -4,10 +4,9 @@
     <meta charset="utf-8">
     <title>{{ title }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="generator" content="Galerio v{{ gallerist_version }}">
-
+    <meta name="generator" content="Galerio v{{ galerio_version }}">
+    <meta name="DC.Date" content="{{ isodate }}">
     <link rel="stylesheet" type="text/css" href="static/simple-lightbox.min.css">
-
     <style type="text/css">
         /* Reset */
         * {
@@ -33,6 +32,16 @@
         }
         h1 {
             text-align: center;
+        }
+        .links {
+            text-align: center;
+            margin: 8px 0 16px;
+        }
+        .links a {
+            color: #eee;
+        }
+        .links a:hover {
+            text-decoration: underline;
         }
 
         /* Gallery */
@@ -60,6 +69,11 @@
 
 <body>
     <h1>{{ title }}</h1>
+    {% if download_filename %}
+    <div class="links">
+        <a href="{{ download_filename }}">Download (ZIP)</a>
+    </div>
+    {% endif %}
     <div class="gallery">
         {% for image in images %}
         <div class="thumb">

@@ -1,5 +1,6 @@
 use std::{
-    fs, io,
+    fs,
+    io::{self, Write},
     path::{Path, PathBuf},
     time::Instant,
 };
@@ -49,9 +50,13 @@ struct Args {
     #[structopt(short = "h", long = "height", default_value = "300")]
     thumbnail_height: u32,
 
-    /// Skip creating thumbnails
+    /// Disallow full gallery download as ZIP
+    #[structopt(long = "no-download")]
+    no_download: bool,
+
+    /// Skip processing image files
     #[structopt(long)]
-    skip_thumbnails: bool,
+    skip_processing: bool,
 }
 
 #[derive(Serialize)]
@@ -63,7 +68,9 @@ struct Image {
 #[derive(Serialize)]
 struct Context {
     title: String,
-    gallerist_version: &'static str,
+    galerio_version: &'static str,
+    isodate: String,
+    download_filename: Option<String>,
     images: Vec<Image>,
 }
 
@@ -155,7 +162,7 @@ fn main() -> Result<()> {
     log!("Output dir: {:?}", args.output_dir);
 
     // Get list of input images
-    let image_files = fs::read_dir(args.input_dir)?
+    let image_files = fs::read_dir(&args.input_dir)?
         .filter_map(|res| res.ok())
         .filter(|dir_entry| {
             dir_entry
@@ -173,9 +180,26 @@ fn main() -> Result<()> {
         .map(|dir_entry| dir_entry.path())
         .collect::<Vec<_>>();
 
+    // Determine download ZIP filename
+    let download_filename = if args.no_download {
+        None
+    } else {
+        let name: String = args
+            .title
+            .chars()
+            .map(|c| if c == ' ' { '_' } else { c })
+            .filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_' || *c == '.')
+            .collect();
+        Some(format!("{}.zip", name))
+    };
+
     // Process images
     let mut images = Vec::with_capacity(image_files.len());
-    for f in image_files {
+    let mut zipfile = download_filename
+        .as_ref()
+        .and_then(|filename| Some(fs::File::create(args.output_dir.join(filename)).unwrap()))
+        .map(zip::ZipWriter::new);
+    for f in &image_files {
         // Determine filenames
         let filename_full = f.file_name().unwrap().to_str().unwrap().to_string();
         let filename_thumb = format!(
@@ -186,7 +210,7 @@ fn main() -> Result<()> {
         );
 
         // Resize
-        if !args.skip_thumbnails {
+        if !args.skip_processing {
             log!("Processing {:?}", filename_full);
 
             // Read orientation from EXIF data
@@ -200,6 +224,14 @@ fn main() -> Result<()> {
             // Copy original size file
             let full_path = args.output_dir.join(&filename_full);
             fs::copy(&f, &full_path)?;
+
+            // Add file to ZIP
+            let options = zip::write::FileOptions::default()
+                .compression_method(zip::CompressionMethod::Stored);
+            if let Some(ref mut zipwriter) = zipfile {
+                zipwriter.start_file(&filename_full, options)?;
+                zipwriter.write(&fs::read(&full_path)?)?;
+            }
         }
 
         // Store
@@ -212,8 +244,10 @@ fn main() -> Result<()> {
     // Create template context
     let context = Context {
         title: args.title.clone(),
-        gallerist_version: VERSION,
+        galerio_version: VERSION,
         images,
+        download_filename,
+        isodate: chrono::Utc::now().to_rfc3339(),
     };
 
     // Generate index.html
