@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
+use exif::{In as IdfNum, Reader as ExifReader, Tag as ExifTag, Value as ExifValue};
 use image::{self, imageops::FilterType, ImageFormat};
 use lazy_static::lazy_static;
 use serde::Serialize;
@@ -44,6 +45,10 @@ struct Args {
     /// Gallery title
     title: String,
 
+    /// Max thumbnail height in pixels
+    #[structopt(short = "h", long = "height", default_value = "300")]
+    thumbnail_height: u32,
+
     /// Skip creating thumbnails
     #[structopt(long)]
     skip_thumbnails: bool,
@@ -63,12 +68,68 @@ struct Context {
 }
 
 /// Generate a thumbnail from the `image_path`, return the thumbnail bytes.
-fn make_thumbnail(image_path: impl AsRef<Path>, thumbnail_size: u32) -> Result<Vec<u8>> {
+fn make_thumbnail(
+    image_path: impl AsRef<Path>,
+    thumbnail_height: u32,
+    orientation: &Orientation,
+) -> Result<Vec<u8>> {
+    // Open original image
     let img = image::open(image_path)?;
+
+    // Apply rotation, then resize
+    let thumb = match orientation {
+        Orientation::Deg0 => img,
+        Orientation::Deg90 => img.rotate270(),
+        Orientation::Deg180 => img.rotate180(),
+        Orientation::Deg270 => img.rotate90(),
+    }
+    .resize(
+        thumbnail_height * 4,
+        thumbnail_height,
+        FilterType::CatmullRom,
+    );
+
+    // Write and return buffer
     let mut buf = Vec::new();
-    let thumb = img.resize(thumbnail_size, thumbnail_size, FilterType::CatmullRom);
     thumb.write_to(&mut buf, ImageFormat::Jpeg)?;
     Ok(buf)
+}
+
+/// An image orientation.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum Orientation {
+    Deg0,
+    Deg90,
+    Deg180,
+    Deg270,
+}
+
+/// Read the orientation from the EXIF data.
+///
+/// In contrast to the full EXIF format, this only supports rotation, no
+/// mirroring. If something goes wrong or if the image is mirrored,
+/// `Orientation::Deg0` will be returned.
+fn get_orientation(image_path: impl AsRef<Path>) -> Result<Orientation> {
+    let file = fs::File::open(&image_path)?;
+    let orientation = ExifReader::new()
+        .read_from_container(&mut std::io::BufReader::new(&file))?
+        .get_field(ExifTag::Orientation, IdfNum::PRIMARY)
+        .map(|field| field.value.clone())
+        .and_then(|val: ExifValue| {
+            if let ExifValue::Short(data) = val {
+                data.get(0).cloned()
+            } else {
+                None
+            }
+        })
+        .map(|orientation| match orientation {
+            1 => Orientation::Deg0,
+            8 => Orientation::Deg90,
+            3 => Orientation::Deg180,
+            6 => Orientation::Deg270,
+            _ => Orientation::Deg0,
+        });
+    Ok(orientation.unwrap_or(Orientation::Deg0))
 }
 
 fn main() -> Result<()> {
@@ -127,9 +188,18 @@ fn main() -> Result<()> {
         // Resize
         if !args.skip_thumbnails {
             log!("Processing {:?}", filename_full);
-            let thumbnail_bytes = make_thumbnail(&f, 512)?;
+
+            // Read orientation from EXIF data
+            let orientation = get_orientation(&f)?;
+
+            // Generate and write thumbnail
+            let thumbnail_bytes = make_thumbnail(&f, args.thumbnail_height, &orientation)?;
             let thumbnail_path = args.output_dir.join(&filename_thumb);
             fs::write(thumbnail_path, thumbnail_bytes)?;
+
+            // Copy original size file
+            let full_path = args.output_dir.join(&filename_full);
+            fs::copy(&f, &full_path)?;
         }
 
         // Store

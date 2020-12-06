@@ -8,6 +8,7 @@ edition = "2018"
 [dependencies]
 anyhow = "1"
 image = "0.23"
+kamadak-exif = "0.5"
 lazy_static = "1.4"
 serde = { version = "1", features = ["derive"] }
 structopt = { version = "0.3", default-features = false }
