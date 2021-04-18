@@ -174,7 +174,7 @@ fn main() -> Result<()> {
             dir_entry
                 .file_name()
                 .to_str()
-                .map(|s| s.ends_with(".jpg"))
+                .map(|s| s.ends_with(".jpg") || s.ends_with(".JPG"))
                 .unwrap_or(false)
         })
         .map(|dir_entry| dir_entry.path())
