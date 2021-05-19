@@ -162,7 +162,7 @@ fn main() -> Result<()> {
     log!("Output dir: {:?}", args.output_dir);
 
     // Get list of input images
-    let image_files = fs::read_dir(&args.input_dir)?
+    let mut image_files = fs::read_dir(&args.input_dir)?
         .filter_map(|res| res.ok())
         .filter(|dir_entry| {
             dir_entry
@@ -179,6 +179,7 @@ fn main() -> Result<()> {
         })
         .map(|dir_entry| dir_entry.path())
         .collect::<Vec<_>>();
+    image_files.sort();
 
     // Determine download ZIP filename
     let download_filename = if args.no_download {
