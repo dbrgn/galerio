@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::{anyhow, Result};
 use exif::{In as IdfNum, Reader as ExifReader, Tag as ExifTag, Value as ExifValue};
-use image::{self, imageops::FilterType, ImageFormat};
+use image::{self, imageops::FilterType, GenericImageView, ImageFormat};
 use lazy_static::lazy_static;
 use serde::Serialize;
 use structopt::StructOpt;
@@ -50,6 +50,10 @@ struct Args {
     #[structopt(short = "h", long = "height", default_value = "300")]
     thumbnail_height: u32,
 
+    /// Max large image size in pixels
+    #[structopt(short = "l", long = "max-large-size")]
+    max_large_size: Option<u32>,
+
     /// Disallow full gallery download as ZIP
     #[structopt(long = "no-download")]
     no_download: bool,
@@ -74,31 +78,34 @@ struct Context {
     images: Vec<Image>,
 }
 
-/// Generate a thumbnail from the `image_path`, return the thumbnail bytes.
-fn make_thumbnail(
+/// Get the width and height of the image (whichever
+fn get_dimensions(image_path: impl AsRef<Path>) -> Result<(u32, u32)> {
+    let img = image::open(image_path)?;
+    Ok(img.dimensions())
+}
+
+/// Generate a resized image from the `image_path`, return the resized bytes.
+fn resize_image(
     image_path: impl AsRef<Path>,
-    thumbnail_height: u32,
+    max_width: u32,
+    max_height: u32,
     orientation: &Orientation,
 ) -> Result<Vec<u8>> {
     // Open original image
     let img = image::open(image_path)?;
 
     // Apply rotation, then resize
-    let thumb = match orientation {
+    let resized = match orientation {
         Orientation::Deg0 => img,
         Orientation::Deg90 => img.rotate270(),
         Orientation::Deg180 => img.rotate180(),
         Orientation::Deg270 => img.rotate90(),
     }
-    .resize(
-        thumbnail_height * 4,
-        thumbnail_height,
-        FilterType::CatmullRom,
-    );
+    .resize(max_width, max_height, FilterType::CatmullRom);
 
     // Write and return buffer
     let mut buf = Vec::new();
-    thumb.write_to(&mut buf, ImageFormat::Jpeg)?;
+    resized.write_to(&mut buf, ImageFormat::Jpeg)?;
     Ok(buf)
 }
 
@@ -218,13 +225,31 @@ fn main() -> Result<()> {
             let orientation = get_orientation(&f)?;
 
             // Generate and write thumbnail
-            let thumbnail_bytes = make_thumbnail(&f, args.thumbnail_height, &orientation)?;
+            let thumbnail_bytes = resize_image(
+                &f,
+                args.thumbnail_height * 4,
+                args.thumbnail_height,
+                &orientation,
+            )?;
             let thumbnail_path = args.output_dir.join(&filename_thumb);
             fs::write(thumbnail_path, thumbnail_bytes)?;
 
             // Copy original size file
             let full_path = args.output_dir.join(&filename_full);
-            fs::copy(&f, &full_path)?;
+            if let Some(max_size) = args.max_large_size {
+                let (w, h) = get_dimensions(&f)?;
+                if w > max_size || h > max_size {
+                    // Resize large image
+                    let large_bytes = resize_image(&f, max_size, max_size, &orientation)?;
+                    fs::write(&full_path, large_bytes)?;
+                } else {
+                    // Image is smaller than max size, copy as-is
+                    fs::copy(&f, &full_path)?;
+                }
+            } else {
+                // No max-large-size parameter specified, copy original
+                fs::copy(&f, &full_path)?;
+            }
 
             // Add file to ZIP
             let options = zip::write::FileOptions::default()
