@@ -222,7 +222,7 @@ fn main() -> Result<()> {
             log!("Processing {:?}", filename_full);
 
             // Read orientation from EXIF data
-            let orientation = get_orientation(&f)?;
+            let orientation = get_orientation(&f).unwrap_or(Orientation::Deg0);
 
             // Generate and write thumbnail
             let thumbnail_bytes = resize_image(
