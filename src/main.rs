@@ -54,6 +54,10 @@ struct Args {
     #[structopt(short = "l", long = "max-large-size")]
     max_large_size: Option<u32>,
 
+    /// Resize panoramas as well
+    #[structopt(short = "p", long = "resize-include-panorama")]
+    resize_include_panorama: bool,
+
     /// Disallow full gallery download as ZIP
     #[structopt(long = "no-download")]
     no_download: bool,
@@ -90,22 +94,29 @@ fn resize_image(
     max_width: u32,
     max_height: u32,
     orientation: &Orientation,
+    panorama_detection: bool,
 ) -> Result<Vec<u8>> {
     // Open original image
-    let img = image::open(image_path)?;
+    let mut img = image::open(image_path)?;
 
-    // Apply rotation, then resize
-    let resized = match orientation {
-        Orientation::Deg0 => img,
-        Orientation::Deg90 => img.rotate270(),
-        Orientation::Deg180 => img.rotate180(),
-        Orientation::Deg270 => img.rotate90(),
+    // Panorama detection: Aspect ratio more than 2:1?
+    let (w, h) = img.dimensions();
+    let is_panorama = w as f32 / h as f32 > 2.0;
+
+    // For non-panoramas: Apply rotation, then resize
+    if !(is_panorama && panorama_detection) {
+        img = match orientation {
+            Orientation::Deg0 => img,
+            Orientation::Deg90 => img.rotate270(),
+            Orientation::Deg180 => img.rotate180(),
+            Orientation::Deg270 => img.rotate90(),
+        }
+        .resize(max_width, max_height, FilterType::CatmullRom);
     }
-    .resize(max_width, max_height, FilterType::CatmullRom);
 
     // Write and return buffer
     let mut buf = Vec::new();
-    resized.write_to(&mut buf, ImageFormat::Jpeg)?;
+    img.write_to(&mut buf, ImageFormat::Jpeg)?;
     Ok(buf)
 }
 
@@ -230,6 +241,7 @@ fn main() -> Result<()> {
                 args.thumbnail_height * 4,
                 args.thumbnail_height,
                 &orientation,
+                false,
             )?;
             let thumbnail_path = args.output_dir.join(&filename_thumb);
             fs::write(thumbnail_path, thumbnail_bytes)?;
@@ -240,7 +252,13 @@ fn main() -> Result<()> {
                 let (w, h) = get_dimensions(&f)?;
                 if w > max_size || h > max_size {
                     // Resize large image
-                    let large_bytes = resize_image(&f, max_size, max_size, &orientation)?;
+                    let large_bytes = resize_image(
+                        &f,
+                        max_size,
+                        max_size,
+                        &orientation,
+                        !args.resize_include_panorama,
+                    )?;
                     fs::write(&full_path, large_bytes)?;
                 } else {
                     // Image is smaller than max size, copy as-is

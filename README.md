@@ -9,6 +9,7 @@ external dependencies.
 - Simple CSS3/Flexbox based gallery
 - Touch friendly lightbox for viewing images in full screen
 - ZIP download of entire gallery (can be turned off)
+- When resizing images, detect panorama photos and do not scale them
 
 ## Building
 
@@ -24,13 +25,15 @@ Note: Make sure to create a release build, otherwise processing will be insanely
         galerio [FLAGS] [OPTIONS] <input-dir> <output-dir> <title>
 
     FLAGS:
-            --help               Prints help information
-            --no-download        Disallow full gallery download as ZIP
-            --skip-processing    Skip processing image files
-        -V, --version            Prints version information
+            --help                       Prints help information
+            --no-download                Disallow full gallery download as ZIP
+            --resize-include-panorama    Resize panoramas as well
+            --skip-processing            Skip processing image files
+        -V, --version                    Prints version information
 
     OPTIONS:
-        -h, --height <thumbnail-height>    Max thumbnail height in pixels [default: 300]
+        -l, --max-large-size <max-large-size>    Max large image size in pixels
+        -h, --height <thumbnail-height>          Max thumbnail height in pixels [default: 300]
 
     ARGS:
         <input-dir>     Input directory
