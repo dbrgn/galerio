@@ -15,6 +15,10 @@ external dependencies.
 
 ![screenshot](screenshot.jpg)
 
+## Installing
+
+    cargo install galerio
+
 ## Building
 
     cargo build --release

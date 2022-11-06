@@ -20,4 +20,5 @@ Commit & tag:
 
 Publish:
 
+    $ cargo publish
     $ git push && git push --tags
