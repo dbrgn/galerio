@@ -12,6 +12,10 @@ Possible log types:
 - `[security]` to invite users to upgrade in case of vulnerabilities.
 
 
+### v1.0.1 (2022-11-06)
+
+- [fixed] Embed templates and static files into binary
+
 ### v1.0.0 (2022-11-06)
 
 - Initial release
