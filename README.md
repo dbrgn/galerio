@@ -33,7 +33,7 @@ Note: Make sure to create a release build, otherwise processing will be insanely
 
 ## Usage
 
-    galerio 0.1.0
+    galerio 1.0.1
 
     USAGE:
         galerio [FLAGS] [OPTIONS] <input-dir> <output-dir> <title>
@@ -41,7 +41,7 @@ Note: Make sure to create a release build, otherwise processing will be insanely
     FLAGS:
             --help                       Prints help information
             --no-download                Disallow full gallery download as ZIP
-            --resize-include-panorama    Resize panoramas as well
+        -p, --resize-include-panorama    Resize panoramas as well
             --skip-processing            Skip processing image files
         -V, --version                    Prints version information
 
@@ -54,7 +54,7 @@ Note: Make sure to create a release build, otherwise processing will be insanely
         <output-dir>    Output directory
         <title>         Gallery title
 
-Examle:
+Example:
 
     galerio /home/user/pictures/switzerland2020/ /srv/www/galleries/switzerland2020/ "Switzerland 2020"
 
