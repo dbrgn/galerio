@@ -33,7 +33,7 @@ Note: Make sure to create a release build, otherwise processing will be insanely
 
 ## Usage
 
-    galerio 1.0.1
+    galerio 1.1.0
 
     USAGE:
         galerio [FLAGS] [OPTIONS] <input-dir> <output-dir> <title>

@@ -12,9 +12,13 @@ Possible log types:
 - `[security]` to invite users to upgrade in case of vulnerabilities.
 
 
+### v1.1.0 (2022-11-06)
+
+- [added] Download link: Show file size (#4)
+
 ### v1.0.1 (2022-11-06)
 
-- [fixed] Embed templates and static files into binary
+- [fixed] Embed templates and static files into binary (#5)
 
 ### v1.0.0 (2022-11-06)
 
