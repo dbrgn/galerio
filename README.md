@@ -11,6 +11,10 @@ external dependencies.
 - ZIP download of entire gallery (can be turned off)
 - When resizing images, detect panorama photos and do not scale them
 
+## Screenshot
+
+![screenshot](screenshot.jpg)
+
 ## Building
 
     cargo build --release
