@@ -20,6 +20,7 @@ chrono = "0.4"
 image = "0.24"
 kamadak-exif = "0.5"
 lazy_static = "1.4"
+rust-embed = "6"
 serde = { version = "1", features = ["derive"] }
 structopt = { version = "0.3", default-features = false }
 tera = { version = "1.5", default-features = false }

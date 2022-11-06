@@ -5,16 +5,25 @@ use std::{
     time::Instant,
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use exif::{In as IdfNum, Reader as ExifReader, Tag as ExifTag, Value as ExifValue};
 use image::{self, imageops::FilterType, GenericImageView, ImageFormat};
 use lazy_static::lazy_static;
+use rust_embed::RustEmbed;
 use serde::Serialize;
 use structopt::StructOpt;
 use tera::Tera;
 
 const NAME: &str = "galerio";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+#[derive(RustEmbed)]
+#[folder = "templates/"]
+struct Templates;
+
+#[derive(RustEmbed)]
+#[folder = "static/"]
+struct StaticFiles;
 
 lazy_static! {
     static ref START_TIME: Instant = Instant::now();
@@ -74,7 +83,7 @@ struct Image {
 }
 
 #[derive(Serialize)]
-struct Context {
+struct TemplateContext {
     title: String,
     galerio_version: &'static str,
     isodate: String,
@@ -286,7 +295,7 @@ fn main() -> Result<()> {
     }
 
     // Create template context
-    let context = Context {
+    let context = TemplateContext {
         title: args.title.clone(),
         galerio_version: VERSION,
         images,
@@ -294,14 +303,24 @@ fn main() -> Result<()> {
         isodate: chrono::Utc::now().to_rfc3339(),
     };
 
+    // Load templates
+    let mut tera = Tera::default();
+    for template in Templates::iter() {
+        let template_bytes = Templates::get(&template)
+            .ok_or_else(|| anyhow!("Could not load template {}", template))?
+            .data;
+        let template_str =
+            std::str::from_utf8(&template_bytes).context("Template isn't valid UTF8")?;
+        tera.add_raw_template(&template, template_str)
+            .context("Could not add template")?;
+    }
+
     // Generate index.html
-    let tera = Tera::new("templates/**/*.html")?;
     let rendered = tera.render("index.html", &tera::Context::from_serialize(&context)?)?;
     log!("Writing index.html");
     fs::write(args.output_dir.join("index.html"), rendered)?;
 
     // Write static files
-    log!("Writing static files");
     fs::create_dir(args.output_dir.join("static")).or_else(|e| {
         if e.kind() == io::ErrorKind::AlreadyExists {
             Ok(())
@@ -309,14 +328,13 @@ fn main() -> Result<()> {
             Err(e)
         }
     })?;
-    fs::write(
-        args.output_dir.join("static/simple-lightbox.min.js"),
-        include_bytes!("../static/simple-lightbox.min.js"),
-    )?;
-    fs::write(
-        args.output_dir.join("static/simple-lightbox.min.css"),
-        include_bytes!("../static/simple-lightbox.min.css"),
-    )?;
+    for file in StaticFiles::iter() {
+        log!("Writing static file {}", file);
+        let file_bytes = StaticFiles::get(&file)
+            .ok_or_else(|| anyhow!("Could not load static file {}", file))?
+            .data;
+        fs::write(args.output_dir.join("static").join(&*file), file_bytes)?;
+    }
 
     log!("Done!");
     Ok(())
