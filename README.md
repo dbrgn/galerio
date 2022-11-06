@@ -17,7 +17,13 @@ external dependencies.
 
 ## Installing
 
+Through cargo:
+
     cargo install galerio
+
+From Arch Linux AUR:
+
+    yay -S galerio
 
 ## Building
 
