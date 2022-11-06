@@ -151,7 +151,7 @@ fn get_orientation(image_path: impl AsRef<Path>) -> Result<Orientation> {
         .map(|field| field.value.clone())
         .and_then(|val: ExifValue| {
             if let ExifValue::Short(data) = val {
-                data.get(0).cloned()
+                data.first().cloned()
             } else {
                 None
             }
@@ -225,7 +225,7 @@ fn main() -> Result<()> {
     let mut images = Vec::with_capacity(image_files.len());
     let mut zipfile = download_filename
         .as_ref()
-        .and_then(|filename| Some(fs::File::create(args.output_dir.join(filename)).unwrap()))
+        .map(|filename| fs::File::create(args.output_dir.join(filename)).unwrap())
         .map(zip::ZipWriter::new);
     for f in &image_files {
         // Determine filenames
@@ -242,11 +242,11 @@ fn main() -> Result<()> {
             log!("Processing {:?}", filename_full);
 
             // Read orientation from EXIF data
-            let orientation = get_orientation(&f).unwrap_or(Orientation::Deg0);
+            let orientation = get_orientation(f).unwrap_or(Orientation::Deg0);
 
             // Generate and write thumbnail
             let thumbnail_bytes = resize_image(
-                &f,
+                f,
                 args.thumbnail_height * 4,
                 args.thumbnail_height,
                 &orientation,
@@ -258,11 +258,11 @@ fn main() -> Result<()> {
             // Copy original size file
             let full_path = args.output_dir.join(&filename_full);
             if let Some(max_size) = args.max_large_size {
-                let (w, h) = get_dimensions(&f)?;
+                let (w, h) = get_dimensions(f)?;
                 if w > max_size || h > max_size {
                     // Resize large image
                     let large_bytes = resize_image(
-                        &f,
+                        f,
                         max_size,
                         max_size,
                         &orientation,
@@ -271,11 +271,11 @@ fn main() -> Result<()> {
                     fs::write(&full_path, large_bytes)?;
                 } else {
                     // Image is smaller than max size, copy as-is
-                    fs::copy(&f, &full_path)?;
+                    fs::copy(f, &full_path)?;
                 }
             } else {
                 // No max-large-size parameter specified, copy original
-                fs::copy(&f, &full_path)?;
+                fs::copy(f, &full_path)?;
             }
 
             // Add file to ZIP
@@ -283,7 +283,7 @@ fn main() -> Result<()> {
                 .compression_method(zip::CompressionMethod::Stored);
             if let Some(ref mut zipwriter) = zipfile {
                 zipwriter.start_file(&filename_full, options)?;
-                zipwriter.write(&fs::read(&full_path)?)?;
+                zipwriter.write_all(&fs::read(&full_path)?)?;
             }
         }
 
