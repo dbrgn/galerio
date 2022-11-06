@@ -88,6 +88,7 @@ struct TemplateContext {
     galerio_version: &'static str,
     isodate: String,
     download_filename: Option<String>,
+    download_filesize_mib: Option<u64>,
     images: Vec<Image>,
 }
 
@@ -293,6 +294,10 @@ fn main() -> Result<()> {
             filename_thumb,
         });
     }
+    let download_filesize_mib = download_filename
+        .as_ref()
+        .map(|filename| fs::metadata(args.output_dir.join(filename)).unwrap().len())
+        .map(|bytes| (bytes as f64 / 1024.0 / 1024.0).ceil() as u64);
 
     // Create template context
     let context = TemplateContext {
@@ -300,6 +305,7 @@ fn main() -> Result<()> {
         galerio_version: VERSION,
         images,
         download_filename,
+        download_filesize_mib,
         isodate: chrono::Utc::now().to_rfc3339(),
     };
 
