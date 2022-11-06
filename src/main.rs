@@ -1,6 +1,6 @@
 use std::{
     fs,
-    io::{self, Write},
+    io::{self, Cursor, Write},
     path::{Path, PathBuf},
     time::Instant,
 };
@@ -116,7 +116,7 @@ fn resize_image(
 
     // Write and return buffer
     let mut buf = Vec::new();
-    img.write_to(&mut buf, ImageFormat::Jpeg)?;
+    img.write_to(&mut Cursor::new(&mut buf), ImageFormat::Jpeg)?;
     Ok(buf)
 }
 
