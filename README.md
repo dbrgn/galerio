@@ -4,6 +4,8 @@ Galerio is a simple generator for HTML flexbox galleries written in Rust. From
 a directory with JPEG files, it generates a self-contained gallery without
 external dependencies.
 
+Demo gallery: <https://tmp.dbrgn.ch/galerio-demo/>
+
 ## Features
 
 - Simple CSS3/Flexbox based gallery
