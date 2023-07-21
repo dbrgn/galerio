@@ -2,6 +2,7 @@ use std::{
     fs,
     io::{self, Cursor, Write},
     path::{Path, PathBuf},
+    sync::{Arc, Mutex},
     time::Instant,
 };
 
@@ -9,6 +10,7 @@ use anyhow::{anyhow, Context, Result};
 use exif::{In as IdfNum, Reader as ExifReader, Tag as ExifTag, Value as ExifValue};
 use image::{self, imageops::FilterType, GenericImageView, ImageFormat};
 use lazy_static::lazy_static;
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use rust_embed::RustEmbed;
 use serde::Serialize;
 use structopt::StructOpt;
@@ -223,77 +225,87 @@ fn main() -> Result<()> {
     };
 
     // Process images
-    let mut images = Vec::with_capacity(image_files.len());
-    let mut zipfile = download_filename
-        .as_ref()
-        .map(|filename| fs::File::create(args.output_dir.join(filename)).unwrap())
-        .map(zip::ZipWriter::new);
-    for f in &image_files {
-        // Determine filenames
-        let filename_full = f.file_name().unwrap().to_str().unwrap().to_string();
-        let filename_thumb = format!(
-            "{}.thumb.jpg",
-            f.file_stem()
-                .and_then(|stem| stem.to_str())
-                .ok_or_else(|| anyhow!("Could not determine file stem for file {:?}", f))?,
-        );
+    let zipfile = Arc::new(Mutex::new(
+        download_filename
+            .as_ref()
+            .map(|filename| fs::File::create(args.output_dir.join(filename)).unwrap())
+            .map(zip::ZipWriter::new),
+    ));
 
-        // Resize
-        if !args.skip_processing {
-            log!("Processing {:?}", filename_full);
+    let images = image_files
+        .par_iter()
+        .map(|f| {
+            // Determine filenames
+            let filename_full = f.file_name().unwrap().to_str().unwrap().to_string();
+            let filename_thumb = format!(
+                "{}.thumb.jpg",
+                f.file_stem()
+                    .and_then(|stem| stem.to_str())
+                    .ok_or_else(|| anyhow!("Could not determine file stem for file {:?}", f))
+                    .unwrap(),
+            );
 
-            // Read orientation from EXIF data
-            let orientation = get_orientation(f).unwrap_or(Orientation::Deg0);
+            // Resize
+            if !args.skip_processing {
+                log!("Processing {:?}", filename_full);
 
-            // Generate and write thumbnail
-            let thumbnail_bytes = resize_image(
-                f,
-                args.thumbnail_height * 4,
-                args.thumbnail_height,
-                &orientation,
-                false,
-            )?;
-            let thumbnail_path = args.output_dir.join(&filename_thumb);
-            fs::write(thumbnail_path, thumbnail_bytes)?;
+                // Read orientation from EXIF data
+                let orientation = get_orientation(f).unwrap_or(Orientation::Deg0);
 
-            // Copy original size file
-            let full_path = args.output_dir.join(&filename_full);
-            if let Some(max_size) = args.max_large_size {
-                let (w, h) = get_dimensions(f)?;
-                if w > max_size || h > max_size {
-                    // Resize large image
-                    let large_bytes = resize_image(
-                        f,
-                        max_size,
-                        max_size,
-                        &orientation,
-                        !args.resize_include_panorama,
-                    )?;
-                    fs::write(&full_path, large_bytes)?;
+                // Generate and write thumbnail
+                let thumbnail_bytes = resize_image(
+                    f,
+                    args.thumbnail_height * 4,
+                    args.thumbnail_height,
+                    &orientation,
+                    false,
+                )
+                .unwrap();
+                let thumbnail_path = args.output_dir.join(&filename_thumb);
+                fs::write(thumbnail_path, thumbnail_bytes).unwrap();
+
+                // Copy original size file
+                let full_path = args.output_dir.join(&filename_full);
+                if let Some(max_size) = args.max_large_size {
+                    let (w, h) = get_dimensions(f).unwrap();
+                    if w > max_size || h > max_size {
+                        // Resize large image
+                        let large_bytes = resize_image(
+                            f,
+                            max_size,
+                            max_size,
+                            &orientation,
+                            !args.resize_include_panorama,
+                        )
+                        .unwrap();
+                        fs::write(&full_path, large_bytes).unwrap();
+                    } else {
+                        // Image is smaller than max size, copy as-is
+                        fs::copy(f, &full_path).unwrap();
+                    }
                 } else {
-                    // Image is smaller than max size, copy as-is
-                    fs::copy(f, &full_path)?;
+                    // No max-large-size parameter specified, copy original
+                    fs::copy(f, &full_path).unwrap();
                 }
-            } else {
-                // No max-large-size parameter specified, copy original
-                fs::copy(f, &full_path)?;
+
+                // Add file to ZIP
+                let options = zip::write::FileOptions::default()
+                    .compression_method(zip::CompressionMethod::Stored);
+
+                zipfile.lock().unwrap().iter_mut().for_each(|zipwriter| {
+                    zipwriter.start_file(&filename_full, options).unwrap();
+                    zipwriter.write_all(&fs::read(&full_path).unwrap()).unwrap();
+                });
             }
 
-            // Add file to ZIP
-            let options = zip::write::FileOptions::default()
-                .compression_method(zip::CompressionMethod::Stored);
-            if let Some(ref mut zipwriter) = zipfile {
-                zipwriter.start_file(&filename_full, options)?;
-                zipwriter.write_all(&fs::read(&full_path)?)?;
+            // Store
+            Image {
+                filename_full,
+                filename_thumb,
             }
-        }
-
-        // Store
-        images.push(Image {
-            filename_full,
-            filename_thumb,
-        });
-    }
+        })
+        .collect::<Vec<_>>();
+    // for f in &image_files {}
     let download_filesize_mib = download_filename
         .as_ref()
         .map(|filename| fs::metadata(args.output_dir.join(filename)).unwrap().len())
