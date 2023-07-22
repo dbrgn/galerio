@@ -305,7 +305,6 @@ fn main() -> Result<()> {
             }
         })
         .collect::<Vec<_>>();
-    // for f in &image_files {}
     let download_filesize_mib = download_filename
         .as_ref()
         .map(|filename| fs::metadata(args.output_dir.join(filename)).unwrap().len())
