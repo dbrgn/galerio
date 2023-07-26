@@ -259,15 +259,14 @@ fn main() -> Result<()> {
                     args.thumbnail_height,
                     &orientation,
                     false,
-                )
-                .unwrap();
+                )?;
                 let thumbnail_path = args.output_dir.join(&filename_thumb);
-                fs::write(thumbnail_path, thumbnail_bytes).unwrap();
+                fs::write(thumbnail_path, thumbnail_bytes)?;
 
                 // Copy original size file
                 let full_path = args.output_dir.join(&filename_full);
                 if let Some(max_size) = args.max_large_size {
-                    let (w, h) = get_dimensions(f).unwrap();
+                    let (w, h) = get_dimensions(f)?;
                     if w > max_size || h > max_size {
                         // Resize large image
                         let large_bytes = resize_image(
@@ -276,35 +275,35 @@ fn main() -> Result<()> {
                             max_size,
                             &orientation,
                             !args.resize_include_panorama,
-                        )
-                        .unwrap();
-                        fs::write(&full_path, large_bytes).unwrap();
+                        )?;
+                        fs::write(&full_path, large_bytes)?;
                     } else {
                         // Image is smaller than max size, copy as-is
-                        fs::copy(f, &full_path).unwrap();
+                        fs::copy(f, &full_path)?;
                     }
                 } else {
                     // No max-large-size parameter specified, copy original
-                    fs::copy(f, &full_path).unwrap();
+                    fs::copy(f, &full_path)?;
                 }
 
                 // Add file to ZIP
                 let options = zip::write::FileOptions::default()
                     .compression_method(zip::CompressionMethod::Stored);
 
-                zipfile.lock().unwrap().iter_mut().for_each(|zipwriter| {
+                if let Some(zipwriter) = zipfile.lock().expect("Couldn't lock zipfile").as_mut() {
                     zipwriter.start_file(&filename_full, options).unwrap();
                     zipwriter.write_all(&fs::read(&full_path).unwrap()).unwrap();
-                });
+                }
             }
 
             // Store
-            Image {
+            Ok(Image {
                 filename_full,
                 filename_thumb,
-            }
+            })
         })
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>>>()?;
+
     let download_filesize_mib = download_filename
         .as_ref()
         .map(|filename| fs::metadata(args.output_dir.join(filename)).unwrap().len())
