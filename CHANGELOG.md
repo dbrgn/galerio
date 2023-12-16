@@ -12,6 +12,13 @@ Possible log types:
 - `[security]` to invite users to upgrade in case of vulnerabilities.
 
 
+### v1.2.0 (2023-12-16)
+
+- [changed] Parallel processing of images, resulting in a huge speed-up on
+  multi-core systems (#6)
+- [changed] Improved error handling (#8)
+- [changed] Updated dependencies (#7)
+
 ### v1.1.0 (2022-11-06)
 
 - [added] Download link: Show file size (#4)
