@@ -1,5 +1,9 @@
 # Galerio
 
+[![Build status][workflow-badge]][workflow]
+[![Crates.io Version][crates-io-badge]][crates-io]
+[![Crates.io Downloads][crates-io-download-badge]][crates-io-download]
+
 Galerio is a simple generator for HTML flexbox galleries written in Rust. From
 a directory with JPEG files, it generates a self-contained gallery without
 external dependencies.
@@ -75,3 +79,12 @@ Licensed under either of
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you, as defined in the Apache-2.0 license, shall
 be dual licensed as above, without any additional terms or conditions.
+
+
+<!-- Badges -->
+[workflow]: https://github.com/dbrgn/galerio/actions?query=workflow%3ACI
+[workflow-badge]: https://img.shields.io/github/actions/workflow/status/dbrgn/galerio/ci.yml?branch=main
+[crates-io]: https://crates.io/crates/galerio
+[crates-io-badge]: https://img.shields.io/crates/v/galerio.svg?maxAge=3600
+[crates-io-download]: https://crates.io/crates/galerio
+[crates-io-download-badge]: https://img.shields.io/crates/d/galerio.svg?maxAge=3600
