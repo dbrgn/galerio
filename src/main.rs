@@ -1,5 +1,5 @@
 use std::{
-    fs,
+    fmt, fs,
     io::{self, Cursor, Write},
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
@@ -102,14 +102,15 @@ fn get_dimensions(image_path: impl AsRef<Path>) -> Result<(u32, u32)> {
 
 /// Generate a resized image from the `image_path`, return the resized bytes.
 fn resize_image(
-    image_path: impl AsRef<Path>,
+    image_path: impl AsRef<Path> + fmt::Debug,
     max_width: u32,
     max_height: u32,
     orientation: &Orientation,
     panorama_detection: bool,
 ) -> Result<Vec<u8>> {
     // Open original image
-    let mut img = image::open(image_path)?;
+    let mut img =
+        image::open(&image_path).context(format!("Could not open image at {:?}", image_path))?;
 
     // Panorama detection: Aspect ratio more than 2:1?
     let (w, h) = img.dimensions();
@@ -228,7 +229,10 @@ fn main() -> Result<()> {
     let zipfile = Arc::new(Mutex::new(
         download_filename
             .as_ref()
-            .map(|filename| fs::File::create(args.output_dir.join(filename)).unwrap())
+            .map(|filename| {
+                let outpath = args.output_dir.join(filename);
+                fs::File::create(outpath).expect("Could not create ZIP file in output directory")
+            })
             .map(zip::ZipWriter::new),
     ));
 
@@ -261,7 +265,8 @@ fn main() -> Result<()> {
                     false,
                 )?;
                 let thumbnail_path = args.output_dir.join(&filename_thumb);
-                fs::write(thumbnail_path, thumbnail_bytes)?;
+                fs::write(&thumbnail_path, thumbnail_bytes)
+                    .context(format!("Could not write thumbnail at {:?}", thumbnail_path))?;
 
                 // Copy original size file
                 let full_path = args.output_dir.join(&filename_full);
@@ -276,14 +281,17 @@ fn main() -> Result<()> {
                             &orientation,
                             !args.resize_include_panorama,
                         )?;
-                        fs::write(&full_path, large_bytes)?;
+                        fs::write(&full_path, large_bytes)
+                            .context(format!("Could not write resized image at {:?}", full_path))?;
                     } else {
                         // Image is smaller than max size, copy as-is
-                        fs::copy(f, &full_path)?;
+                        fs::copy(f, &full_path)
+                            .context(format!("Could not copy image image to {:?}", full_path))?;
                     }
                 } else {
                     // No max-large-size parameter specified, copy original
-                    fs::copy(f, &full_path)?;
+                    fs::copy(f, &full_path)
+                        .context(format!("Could not copy image image to {:?}", full_path))?;
                 }
 
                 // Add file to ZIP
@@ -291,8 +299,8 @@ fn main() -> Result<()> {
                     .compression_method(zip::CompressionMethod::Stored);
 
                 if let Some(zipwriter) = zipfile.lock().expect("Couldn't lock zipfile").as_mut() {
-                    zipwriter.start_file(&filename_full, options).unwrap();
-                    zipwriter.write_all(&fs::read(&full_path).unwrap()).unwrap();
+                    zipwriter.start_file(&filename_full, options)?;
+                    zipwriter.write_all(&fs::read(&full_path)?)?;
                 }
             }
 
